@@ -1,1 +1,0 @@
-"""InvestSim package marker"""
