@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+*.log
+.env.local
+.idea/
+.vscode/
+node_modules/
+.env
+*.json
+meta_api.log
+token_info.json
+__pycache__/
