@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InvestSim — Simulador de Inversiones</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --green:     #3fb950;
+      --green-dim: #1a3a20;
+      --red:       #f85149;
+      --red-dim:   #3a1a1a;
+      --blue:      #388bfd;
+      --purple:    #bc8cff;
+      --accent:    #388bfd;
+      --yellow:    #e3b341;
+
+      --c-caucion:  #3fb950;
+      --c-money:    #56d364;
+      --c-spy:      #388bfd;
+      --c-qqq:      #bc8cff;
+      --c-apuestas: #f85149;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--text); }
+    .tagline {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ── Layout ─────────────────────────────────── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    /* ── Widget tipo de cambio ───────────────────── */
+    .rate-widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .rate-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .rate-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .rate-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blue);
+    }
+    .rate-refresh {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color .15s;
+    }
+    .rate-refresh:hover { color: var(--text); }
+    .rate-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .rate-input-wrap {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .rate-input-wrap:focus-within { border-color: var(--accent); }
+    .rate-input-wrap input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      padding: 5px 8px;
+      width: 65px;
+    }
+    .rate-input-wrap input::-webkit-inner-spin-button { opacity: .4; }
+    .rate-input-wrap > span {
+      color: var(--muted);
+      font-size: 13px;
+      padding-right: 8px;
+    }
+    .rate-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    /* ── Tabs ───────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 18px;
+      margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover  { color: var(--text); }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ───────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .card p {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Form ───────────────────────────────────── */
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    label  { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      transition: border-color .15s;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+    .input-wrap span { padding: 0 10px; color: var(--muted); font-size: 13px; user-select: none; }
+
+    input[type="number"], input[type="date"] {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      padding: 9px 12px;
+      width: 160px;
+    }
+    input[type="date"] { width: 150px; color-scheme: dark; }
+    input[type="number"]::-webkit-inner-spin-button { opacity: .4; }
+
+    /* ── Buttons ────────────────────────────────── */
+    .btn {
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 20px;
+      transition: opacity .15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover  { opacity: .85; }
+    .btn:active { opacity: .7; }
+
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost     { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 13px; padding: 6px 14px; text-decoration: none; }
+    .btn-danger    { background: none; border: 1px solid var(--border); color: var(--red); font-size: 12px; padding: 4px 10px; }
+
+    /* ── Bet rows ───────────────────────────────── */
+    .bet-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      padding: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .bet-num {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .bet-row > .field { margin-top: 18px; }
+    .remove-btn { align-self: flex-end; margin-bottom: 2px; }
+
+    .bets-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    /* ── Upload status ──────────────────────────── */
+    .upload-status {
+      font-size: 13px;
+      margin-top: 10px;
+      min-height: 0;
+      display: none;
+    }
+    .upload-status.visible       { display: block; }
+    .upload-status.status-ok     { color: var(--green); }
+    .upload-status.status-warn   { color: var(--yellow); }
+    .upload-status.status-info   { color: var(--muted); }
+
+    /* ── Error ──────────────────────────────────── */
+    .error-msg {
+      color: var(--red);
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ── Results ────────────────────────────────── */
+    .results { display: none; }
+    .results.visible { display: block; }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    canvas { max-height: 320px; }
+
+    /* ── Table ──────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    thead th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    thead th:not(:first-child) { text-align: right; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    td { padding: 12px 14px; }
+    td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .instrument-name { font-weight: 600; }
+    .risk-badge {
+      display: inline-block;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+    }
+
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .neutral  { color: var(--muted); }
+
+    /* ── Devaluation note ───────────────────────── */
+    .deval-note {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Summary banner ─────────────────────────── */
+    .summary-banner {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .summary-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 20px;
+      flex: 1;
+      min-width: 150px;
+    }
+    .summary-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .summary-value { font-size: 20px; font-weight: 700; }
+
+    /* ── Color dots ─────────────────────────────── */
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    /* ── Loading spinner ────────────────────────── */
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 600px) {
+      main { padding: 20px 14px 48px; }
+      .form-row { flex-direction: column; }
+      input[type="number"], input[type="date"] { width: 100%; }
+      .rate-hint { display: none; }
+      .rate-divider { display: none; }
+      .bets-actions { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Invest<span>Sim</span></div>
+  </div>
+  <div class="tagline">Tomá mejores decisiones financieras basadas en datos</div>
+</header>
+
+<main>
+
+  <!-- ── Widget tipo de cambio y devaluación ─────────────────────────────── -->
+  <div class="rate-widget">
+    <div class="rate-group">
+      <span class="rate-label">Dólar MEP</span>
+      <span class="rate-value" id="rate-display">—</span>
+      <button class="rate-refresh" onclick="refreshRate()" title="Actualizar tipo de cambio">↻</button>
+    </div>
+    <div class="rate-divider"></div>
+    <div class="rate-group">
+      <span class="rate-label">Devaluación anual estimada</span>
+      <div class="rate-input-wrap">
+        <input type="number" id="annual-devaluation" value="30" min="0" max="500" />
+        <span>%</span>
+      </div>
+    </div>
+    <span class="rate-hint">Afecta el retorno de SPY y QQQ en pesos argentinos</span>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────── -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('future', this)">📈 Inversión Futura</button>
+    <button class="tab-btn"        onclick="switchTab('historical', this)">🎲 Historial de Apuestas</button>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- TAB 1: Simulador futuro                           -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div id="tab-future" class="tab-panel active">
+
+    <div class="card">
+      <h2>Simulá tu inversión</h2>
+      <p>Ingresá un capital y un plazo para comparar cómo evolucionaría en cada instrumento.</p>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Capital inicial</label>
+          <div class="input-wrap">
+            <span>$</span>
+            <input type="number" id="f-amount" placeholder="100000" min="1" step="1000" value="100000" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Plazo</label>
+          <div class="input-wrap">
+            <input type="number" id="f-months" placeholder="12" min="1" max="120" value="12" />
+            <span>meses</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="runFuture()">
+          Simular
+          <span class="spinner" id="f-spinner"></span>
+        </button>
+      </div>
+      <div class="error-msg" id="f-error"></div>
+    </div>
+
+    <div class="results" id="future-results">
+
+      <div class="summary-banner" id="f-summary"></div>
+
+      <div class="chart-card">
+        <div class="chart-title">Evolución del capital mes a mes (en pesos argentinos)</div>
+        <canvas id="future-chart"></canvas>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Instrumento</th>
+              <th>Riesgo</th>
+              <th>Capital final (ARS)</th>
+              <th>Ganancia / Pérd.</th>
+              <th>Retorno %</th>
+            </tr>
+          </thead>
+          <tbody id="f-tbody"></tbody>
+        </table>
+        <div class="deval-note" id="f-deval-note" style="display:none">
+          * SPY y QQQ incluyen devaluación anual estimada del <strong id="f-dev-pct"></strong>% sobre retorno en USD
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- TAB 2: Historial de apuestas                      -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div id="tab-historical" class="tab-panel">
+
+    <div class="card">
+      <h2>¿Cuánto tendrías hoy?</h2>
+      <p>Registrá tus apuestas pasadas y calculamos cuánto hubieras acumulado si hubieras invertido ese dinero.</p>
+
+      <div id="bets-container"></div>
+
+      <div class="bets-actions">
+        <button class="btn btn-secondary" onclick="addBet()">+ Agregar apuesta</button>
+        <label class="btn btn-secondary" for="file-upload" style="cursor:pointer">📂 Cargar Excel</label>
+        <input type="file" id="file-upload" accept=".xlsx,.csv" style="display:none" onchange="handleFileUpload(event)" />
+        <a href="/api/bets-template.csv" class="btn btn-ghost">⬇ Plantilla</a>
+        <button class="btn btn-primary" onclick="runHistorical()">
+          Analizar
+          <span class="spinner" id="h-spinner"></span>
+        </button>
+      </div>
+      <div class="upload-status" id="upload-status"></div>
+      <div class="error-msg" id="h-error"></div>
+    </div>
+
+    <div class="results" id="historical-results">
+
+      <div class="summary-banner" id="h-summary"></div>
+
+      <div class="chart-card">
+        <div class="chart-title">¿Cuánto tendrías hoy en cada instrumento? (en pesos argentinos)</div>
+        <canvas id="historical-chart"></canvas>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Instrumento</th>
+              <th>Hoy valdría (ARS)</th>
+              <th>Diferencia</th>
+              <th>Retorno %</th>
+            </tr>
+          </thead>
+          <tbody id="h-tbody"></tbody>
+        </table>
+        <div class="deval-note" id="h-deval-note" style="display:none">
+          * SPY y QQQ incluyen devaluación anual estimada del <strong id="h-dev-pct"></strong>% sobre retorno en USD
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// Config de instrumentos
+// ─────────────────────────────────────────────────────────────────
+const INSTRUMENTS = [
+  { key: "caucion",     label: "Caución Bursátil",   color: "#3fb950", risk: "Muy bajo",  riskClass: "low"  },
+  { key: "moneyMarket", label: "Fondo Money Market",  color: "#56d364", risk: "Bajo",      riskClass: "low"  },
+  { key: "spy",         label: "SPY (S&P 500)",        color: "#388bfd", risk: "Moderado",  riskClass: "med"  },
+  { key: "qqq",         label: "QQQ (Nasdaq 100)",     color: "#bc8cff", risk: "Alto",      riskClass: "high" },
+  { key: "apuestas",   label: "Apuestas Online",      color: "#f85149", risk: "Muy alto",  riskClass: "xhigh"},
+];
+
+const RISK_COLORS = {
+  low:   { bg: "#1a3a20", text: "#3fb950" },
+  med:   { bg: "#1a2a3a", text: "#388bfd" },
+  high:  { bg: "#2a1a3a", text: "#bc8cff" },
+  xhigh: { bg: "#3a1a1a", text: "#f85149" },
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Utilidades
+// ─────────────────────────────────────────────────────────────────
+function fmtCurrency(n) {
+  return "$ " + Math.round(n).toLocaleString("es-AR");
+}
+function fmtPercent(n) {
+  return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+}
+function profitClass(n) {
+  return n > 0 ? "positive" : n < 0 ? "negative" : "neutral";
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Tipo de cambio y devaluación
+// ─────────────────────────────────────────────────────────────────
+function getDevaluation() {
+  const v = parseFloat(document.getElementById("annual-devaluation").value);
+  return isNaN(v) ? 0.30 : v / 100;
+}
+
+async function fetchRate() {
+  try {
+    const res  = await fetch("/api/exchange-rate");
+    const data = await res.json();
+    document.getElementById("rate-display").textContent =
+      "$ " + Math.round(data.rate).toLocaleString("es-AR");
+  } catch (_) {
+    document.getElementById("rate-display").textContent = "$ — (sin conexión)";
+  }
+}
+
+async function refreshRate() {
+  document.getElementById("rate-display").textContent = "actualizando...";
+  await fetchRate();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab-" + id).classList.add("active");
+  btn.classList.add("active");
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Chart.js — helpers
+// ─────────────────────────────────────────────────────────────────
+Chart.defaults.color = "#8b949e";
+Chart.defaults.borderColor = "#30363d";
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+
+let futureChartInst     = null;
+let historicalChartInst = null;
+
+function buildLineChart(canvasId, labels, datasets) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  return new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 10, padding: 18 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => " " + ctx.dataset.label + ": " + fmtCurrency(ctx.parsed.y),
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: "#1e2530" } },
+        y: {
+          grid: { color: "#1e2530" },
+          ticks: { callback: v => fmtCurrency(v) },
+        },
+      },
+    },
+  });
+}
+
+function buildBarChart(canvasId, labels, dataValues, colors) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  return new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Valor hoy (ARS)",
+        data: dataValues,
+        backgroundColor: colors,
+        borderRadius: 5,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => " " + fmtCurrency(ctx.parsed.y),
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          grid: { color: "#1e2530" },
+          ticks: { callback: v => fmtCurrency(v) },
+        },
+      },
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 1 — Simulador futuro
+// ─────────────────────────────────────────────────────────────────
+async function runFuture() {
+  const amount = parseFloat(document.getElementById("f-amount").value);
+  const months = parseInt(document.getElementById("f-months").value);
+  const errEl  = document.getElementById("f-error");
+
+  errEl.style.display = "none";
+
+  if (!amount || amount <= 0) { showError(errEl, "Ingresá un capital mayor a 0."); return; }
+  if (!months || months <= 0) { showError(errEl, "Ingresá un plazo mayor a 0 meses."); return; }
+
+  setLoading("f-spinner", true);
+
+  try {
+    const res  = await fetch("/api/future", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount, months, annual_devaluation: getDevaluation() }),
+    });
+    const data = await res.json();
+    renderFuture(data);
+  } catch (_) {
+    showError(errEl, "Error al conectar con el servidor.");
+  } finally {
+    setLoading("f-spinner", false);
+  }
+}
+
+function renderFuture(data) {
+  const { results, chart_labels, chart_series, amount, months, annual_devaluation } = data;
+
+  // Summary banner
+  const best = INSTRUMENTS.filter(i => i.key !== "apuestas")
+    .sort((a, b) => results[b.key].return_percent - results[a.key].return_percent)[0];
+  document.getElementById("f-summary").innerHTML = `
+    <div class="summary-item">
+      <div class="summary-label">Capital inicial</div>
+      <div class="summary-value">${fmtCurrency(amount)}</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Plazo</div>
+      <div class="summary-value">${months} ${months === 1 ? "mes" : "meses"}</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Mejor opción</div>
+      <div class="summary-value" style="color:var(--green);font-size:16px">${results[best.key].name}</div>
+    </div>
+  `;
+
+  // Tabla
+  document.getElementById("f-tbody").innerHTML = INSTRUMENTS.map(inst => {
+    const r  = results[inst.key];
+    const rc = RISK_COLORS[inst.riskClass];
+    return `<tr>
+      <td class="instrument-name"><span class="dot" style="background:${inst.color}"></span>${r.name}</td>
+      <td><span class="risk-badge" style="background:${rc.bg};color:${rc.text}">${inst.risk}</span></td>
+      <td>${fmtCurrency(r.final_amount)}</td>
+      <td class="${profitClass(r.profit)}">${fmtCurrency(r.profit)}</td>
+      <td class="${profitClass(r.return_percent)}">${fmtPercent(r.return_percent)}</td>
+    </tr>`;
+  }).join("");
+
+  // Nota devaluación
+  const devPct = Math.round((annual_devaluation || 0) * 100);
+  document.getElementById("f-dev-pct").textContent = devPct;
+  document.getElementById("f-deval-note").style.display = devPct > 0 ? "block" : "none";
+
+  // Gráfico
+  if (futureChartInst) futureChartInst.destroy();
+  const datasets = INSTRUMENTS.map(inst => ({
+    label:           inst.label,
+    data:            chart_series[inst.key],
+    borderColor:     inst.color,
+    backgroundColor: inst.color + "18",
+    borderWidth:     2,
+    tension:         0.35,
+    pointRadius:     chart_labels.length > 24 ? 0 : 3,
+    fill:            false,
+  }));
+  futureChartInst = buildLineChart("future-chart", chart_labels, datasets);
+
+  document.getElementById("future-results").classList.add("visible");
+  document.getElementById("future-results").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 2 — Simulador histórico
+// ─────────────────────────────────────────────────────────────────
+let betCount = 0;
+
+function addBet(preset = null) {
+  betCount++;
+  const id  = betCount;
+  const div = document.createElement("div");
+  div.className = "bet-row";
+  div.id = "bet-" + id;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  div.innerHTML = `
+    <span class="bet-num">Apuesta #${id}</span>
+    <div class="field">
+      <label>Fecha</label>
+      <div class="input-wrap">
+        <input type="date" id="bet-date-${id}" max="${today}" value="${preset?.date || ''}" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Monto apostado</label>
+      <div class="input-wrap">
+        <span>$</span>
+        <input type="number" id="bet-amount-${id}" placeholder="5000" min="1" value="${preset?.amount || ''}" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Recuperaste</label>
+      <div class="input-wrap">
+        <span>$</span>
+        <input type="number" id="bet-result-${id}" placeholder="0" min="0" value="${preset != null ? (preset.result ?? 0) : ''}" />
+      </div>
+    </div>
+    <button class="btn btn-danger remove-btn" onclick="removeBet(${id})">✕</button>
+  `;
+  document.getElementById("bets-container").appendChild(div);
+}
+
+function removeBet(id) {
+  const el = document.getElementById("bet-" + id);
+  if (el) el.remove();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Carga de historial desde archivo Excel / CSV
+// ─────────────────────────────────────────────────────────────────
+async function handleFileUpload(event) {
+  const file   = event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("upload-status");
+  const errEl    = document.getElementById("h-error");
+  errEl.style.display = "none";
+
+  setUploadStatus("Procesando archivo...", "info");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("/api/upload-bets", { method: "POST", body: formData });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showError(errEl, err.detail || "No se pudo procesar el archivo.");
+      setUploadStatus("", null);
+      return;
+    }
+
+    const data = await res.json();
+
+    if (data.count === 0) {
+      setUploadStatus("", null);
+      showError(errEl, data.errors?.[0] || "El archivo no contiene datos válidos.");
+      return;
+    }
+
+    // Reemplazar filas existentes con las del archivo
+    document.getElementById("bets-container").innerHTML = "";
+    betCount = 0;
+    for (const bet of data.bets) {
+      addBet(bet);
+    }
+
+    // Mensaje de resultado
+    if (data.errors && data.errors.length > 0) {
+      const msg = `✓ ${data.count} apuestas cargadas. ${data.errors.length} ${data.errors.length === 1 ? "fila ignorada" : "filas ignoradas"} por errores.`;
+      setUploadStatus(msg, "warn");
+      showError(errEl, data.errors[0]);
+    } else {
+      setUploadStatus(`✓ ${data.count} apuestas cargadas correctamente.`, "ok");
+    }
+
+  } catch (_) {
+    setUploadStatus("", null);
+    showError(errEl, "Error al subir el archivo. Revisá el formato.");
+  }
+
+  // Resetear input para permitir volver a subir el mismo archivo
+  event.target.value = "";
+}
+
+function setUploadStatus(msg, type) {
+  const el = document.getElementById("upload-status");
+  el.textContent = msg;
+  el.className   = "upload-status" + (type ? " visible status-" + type : "");
+}
+
+async function runHistorical() {
+  const errEl = document.getElementById("h-error");
+  errEl.style.display = "none";
+
+  const rows = document.querySelectorAll(".bet-row");
+  if (rows.length === 0) {
+    showError(errEl, "Agregá al menos una apuesta primero.");
+    return;
+  }
+
+  const bets = [];
+  for (const row of rows) {
+    const id     = row.id.replace("bet-", "");
+    const d      = document.getElementById("bet-date-"   + id)?.value;
+    const amount = parseFloat(document.getElementById("bet-amount-" + id)?.value);
+    const result = parseFloat(document.getElementById("bet-result-" + id)?.value || "0");
+
+    if (!d)                   { showError(errEl, `Apuesta #${id}: ingresá la fecha.`); return; }
+    if (!amount || amount<=0) { showError(errEl, `Apuesta #${id}: ingresá un monto válido.`); return; }
+    if (result < 0)           { showError(errEl, `Apuesta #${id}: el monto recuperado no puede ser negativo.`); return; }
+
+    bets.push({ date: d, amount, result });
+  }
+
+  setLoading("h-spinner", true);
+  try {
+    const res  = await fetch("/api/historical", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bets, annual_devaluation: getDevaluation() }),
+    });
+    const data = await res.json();
+    renderHistorical(data, bets);
+  } catch (_) {
+    showError(errEl, "Error al conectar con el servidor.");
+  } finally {
+    setLoading("h-spinner", false);
+  }
+}
+
+function renderHistorical(data, bets) {
+  const { totals, total_invested, today, annual_devaluation } = data;
+
+  const totalBet  = total_invested;
+  const totalBack = bets.reduce((s, b) => s + (b.result || 0), 0);
+  const totalPL   = totalBack - totalBet;
+
+  // Summary banner
+  document.getElementById("h-summary").innerHTML = `
+    <div class="summary-item">
+      <div class="summary-label">Total apostado</div>
+      <div class="summary-value">${fmtCurrency(totalBet)}</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Total recuperado</div>
+      <div class="summary-value ${profitClass(totalBack - totalBet)}">${fmtCurrency(totalBack)}</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Pérdida real</div>
+      <div class="summary-value negative">${fmtCurrency(totalPL)}</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Análisis hasta</div>
+      <div class="summary-value" style="font-size:15px">${today}</div>
+    </div>
+  `;
+
+  // Tabla
+  document.getElementById("h-tbody").innerHTML = INSTRUMENTS.map(inst => {
+    const r = totals[inst.key];
+    return `<tr>
+      <td class="instrument-name"><span class="dot" style="background:${inst.color}"></span>${r.name}</td>
+      <td>${fmtCurrency(r.final_amount)}</td>
+      <td class="${profitClass(r.profit)}">${fmtCurrency(r.profit)}</td>
+      <td class="${profitClass(r.return_percent)}">${fmtPercent(r.return_percent)}</td>
+    </tr>`;
+  }).join("");
+
+  // Nota devaluación
+  const devPct = Math.round((annual_devaluation || 0) * 100);
+  document.getElementById("h-dev-pct").textContent = devPct;
+  document.getElementById("h-deval-note").style.display = devPct > 0 ? "block" : "none";
+
+  // Gráfico de barras
+  if (historicalChartInst) historicalChartInst.destroy();
+  historicalChartInst = buildBarChart(
+    "historical-chart",
+    INSTRUMENTS.map(i => i.label),
+    INSTRUMENTS.map(i => totals[i.key].final_amount),
+    INSTRUMENTS.map(i => i.color + "cc"),
+  );
+
+  document.getElementById("historical-results").classList.add("visible");
+  document.getElementById("historical-results").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers de UI
+// ─────────────────────────────────────────────────────────────────
+function showError(el, msg) {
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function setLoading(spinnerId, on) {
+  document.getElementById(spinnerId).style.display = on ? "inline-block" : "none";
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Inicialización
+// ─────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  // Cargar tipo de cambio al iniciar
+  fetchRate();
+
+  // Agregar una apuesta de ejemplo al abrir la pestaña de historial
+  document.querySelector('[onclick="switchTab(\'historical\', this)"]')
+    .addEventListener("click", () => {
+      if (document.querySelectorAll(".bet-row").length === 0) addBet();
+    });
+});
+</script>
+</body>
+</html>
